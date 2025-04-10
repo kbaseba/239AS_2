@@ -15,7 +15,6 @@ Coursework is entirely project-based, consisting of four major assignments:
 
 By the end of the course, students will have developed a portfolio of working implementations of modern deep learning systems and gained practical insights into training stability, performance evaluation, and real-world application design.
 
-
 ## Instructor
 
 - **Instructor**: Prof. Jonathan Kao (<kao@seas.ucla.edu>)
@@ -28,7 +27,6 @@ By the end of the course, students will have developed a portfolio of working im
 | 2       | Diffusion Models                   | Explore the design and training of diffusion-based generative models. Reconstruct samples and visualize denoising steps. | N/A |
 | 3       | Transformers                       | Build and train a transformer architecture for sequence modeling. Investigate attention mechanisms and performance on text tasks. | N/A   |
 | 4       | Policy Gradients & Deep Q Learning | Apply reinforcement learning algorithms like Policy Gradients and Deep Q Networks to solve control problems in simulation. | N/A   |
-
 
 Each folder includes:
 
