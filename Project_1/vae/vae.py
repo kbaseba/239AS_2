@@ -193,7 +193,9 @@ def reparametrize(mu, logvar):
     # posterior mu and sigma to estimate z                                                         #
     ################################################################################################
     # Replace "pass" statement with your code
-    pass
+     sigma = torch.exp(0.5 * logvar)
+    epsilon =  torch.randn_like(sigma)
+    z = sigma*epsilon + mu
     ################################################################################################
     #                              END OF YOUR CODE                                                #
     ################################################################################################
