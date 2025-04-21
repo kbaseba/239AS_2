@@ -1,3 +1,4 @@
+# %load vae.py
 from __future__ import print_function
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -18,9 +19,9 @@ def hello_vae():
 class VAE(nn.Module):
     def __init__(self, input_size, latent_size=15):
         super(VAE, self).__init__()
-        self.input_size = input_size # H*W
+        self.input_size = input_size # 784 # H*W
         self.latent_size = latent_size # Z
-        self.hidden_dim = None # H_d
+        self.hidden_dim = 400  # H_d
         self.encoder = None
         self.mu_layer = None
         self.logvar_layer = None
@@ -34,15 +35,37 @@ class VAE(nn.Module):
         # features into estimates of the mean and log-variance of the posterior over the latent    #
         # vectors; the mean and log-variance estimates will both be tensors of shape (N, Z).       #
         ############################################################################################
-        # Replace "pass" statement with your code
-        pass
+        # Replace "pass" statement with your code 
+        self.encoder = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(self.input_size, self.hidden_dim),
+                nn.LeakyReLU(0.01),
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LeakyReLU(0.01),
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LeakyReLU(0.01),
+                )
+        self.mu_layer =  nn.Linear(self.hidden_dim, self.latent_size)
+        
+        self.logvar_layer =  nn.Linear(self.hidden_dim, self.latent_size)
+            
         ############################################################################################
         # TODO: Implement the fully-connected decoder architecture described in the notebook.      #
         # Specifically, self.decoder should be a network that inputs a batch of latent vectors of  #
         # shape (N, Z) and outputs a tensor of estimated images of shape (N, 1, H, W).             #
         ############################################################################################
         # Replace "pass" statement with your code
-        pass
+        self.decoder = nn.Sequential(
+                nn.Linear(latent_size, self.hidden_dim),
+                nn.LeakyReLU(0.01),
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LeakyReLU(0.01),
+                nn.Linear(self.hidden_dim, self.hidden_dim),
+                nn.LeakyReLU(0.01),
+                nn.Linear(self.hidden_dim, self.input_size),
+                nn.Sigmoid(),
+                nn.Unflatten(input_size,(1,input_size) )
+                )
         ############################################################################################
         #                                      END OF YOUR CODE                                    #
         ############################################################################################
