@@ -202,7 +202,9 @@ def build_dc_classifier():
         nn.Conv2d(32, 64, kernel_size=5, stride=1),
         nn.LeakyReLU(0.01),
         nn.MaxPool2d(2, 2),
-        Flatten(),
+        nn.Flatten(),                         
+        nn.Linear(1024, 1024),                
+        nn.LeakyReLU(0.01),
         nn.Linear(1024, 1)
     )
 
@@ -225,19 +227,24 @@ def build_dc_generator(noise_dim=NOISE_DIM):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    model = nn.Sequential(
+    return nn.Sequential(
         nn.Linear(noise_dim, 1024),
         nn.ReLU(True),
-        nn.Linear(1024, 7*7*128),
+        nn.BatchNorm1d(1024),
+
+        nn.Linear(1024, 128 * 7 * 7),
         nn.ReLU(True),
+        nn.BatchNorm1d(128 * 7 * 7),
+
         Unflatten(N=-1, C=128, H=7, W=7),
+
         nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
         nn.ReLU(True),
+        nn.BatchNorm2d(64),
+
         nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1),
         nn.Tanh()
     )
-
-    return model
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
