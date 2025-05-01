@@ -27,7 +27,7 @@ class ResConvBlock(nn.Module):
             out = x + x2 
         else:
             out = x1 + x2
-        return out / torch.sqrt(2)
+        return out / torch.sqrt(torch.tensor(2.0, device=out.device))
 
 
 class UnetDown(nn.Module):
@@ -172,5 +172,25 @@ class ConditionalUnet(nn.Module):
         # up2 = 
         # out = self.outblock(torch.cat((up2, down0), dim = 1))
         # ==================================================== #
+
+        # Encoder
+        down0 = self.init_conv(x)                           # (B, 128, 28, 28)
+        down1 = self.downblock1(down0)                      # (B, 128, 14, 14)
+        down1 = self.fusion1(down1, temb2, cemb2)           # (B, 128, 14, 14)
+        down2 = self.downblock2(down1)                      # (B, 256, 7, 7)
+        down2 = self.fusion2(down2, temb1, cemb1)           # (B, 256, 7, 7)
+
+        # Bottleneck
+        hidden = self.to_vec(down2)                         # (B, 256, 1, 1)
+        up0 = self.upblock0(hidden)                         # (B, 256, 7, 7)
+
+        # Decoder
+        up1 = self.upblock1(up0, down2)                     # (B, 128, 14, 14)
+        up1 = self.fusion3(up1, temb2, cemb2)               # (B, 128, 14, 14)
+        up2 = self.upblock2(up1, down1)                     # (B, 128, 28, 28)
+        up2 = self.fusion4(up2, temb2, cemb2)               # (B, 128, 28, 28)
+
+        # Output
+        out = self.outblock(torch.cat((up2, down0), dim=1))  # (B, 1, 28, 28)
 
         return out
