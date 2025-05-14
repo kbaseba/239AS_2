@@ -1,3 +1,8 @@
+
+# project 3
+Project_3/pretrained_models/
+Project_3/data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
