@@ -2,6 +2,7 @@
 # project 3
 Project_3/pretrained_models/
 Project_3/data/
+Project_3/wandb/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

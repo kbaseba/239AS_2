@@ -7,6 +7,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.utils
+import torch.optim as optim
 from torch.utils.data import DataLoader
 from einops import rearrange
 import wandb
@@ -82,10 +83,10 @@ def solver(model_name):
 
     ### ========= TODO : START ========= ###
     # Define the loss function
-    loss = None
+    lossf = nn.CrossEntropyLoss()
 
     # Define the optimizer
-    optimizer = None
+    optimizer =  optim.Adam(model.parameters(), lr=0.01)
     ### ======== TODO : END ========= ###
 
     if config.scheduler:
@@ -97,12 +98,22 @@ def solver(model_name):
     model.to(device)
 
     for i, (context, target) in enumerate(train_dataloader):
+        context= context.to(device)
+        target = target.to(device)
 
         train_loss = None # You can use this variable to store the training loss for the current iteration
         ### ======== TODO : START ========= ###
         # Do the forward pass, compute the loss, do the backward pass, and update the weights with the optimizer.
+        model.zero_grad()
+        logits = model(context)
+        B, T, V = logits.shape
+        # print(B,T,V)
+        logits = logits.view(B * T, V)
+        target = target.view(-1)
+        loss = lossf(logits, target)
         
-        
+        loss.backward()
+        optimizer.step()
         
         
         ### ======== TODO : END ========= ###
@@ -115,10 +126,22 @@ def solver(model_name):
         if i % config.log_interval == 0:
 
             model.eval()
-            eval_loss = None # You can use this variable to store the evaluation loss for the current iteration
+            eval_loss = 0 # You can use this variable to store the evaluation loss for the current iteration
             ### ======== TODO : START ========= ###
             # Compute the evaluation loss on the eval dataset.
-            
+            with torch.no_grad():
+                for context, target in eval_dataloader:
+                    context= context.to(device)
+                    target = target.to(device)
+                    
+                    logits = model(context)
+                    
+                    logits = logits.view(B * T, V)
+                    target = target.view(-1)
+                    loss = lossf(logits, target)
+                    # print(loss.item())
+                    eval_loss += loss.item() * context.size(0)  # multiply by batch size
+                    # total_samples += inputs.size(0)
             
             
             

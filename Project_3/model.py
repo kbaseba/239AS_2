@@ -33,9 +33,9 @@ class BigramLanguageModel(nn.Module):
         super().__init__()
         # ========= TODO : START ========= #
 
-        # self.embeddings = ...
-        # self.linear = ...
-        # self.dropout = ...
+        self.embeddings = nn.Embedding(config.vocab_size, config.embed_dim )
+        self.linear = nn.Linear(config.context_length*config.embed_dim, config.vocab_size , bias=True)
+        self.dropout = nn.Dropout(p=config.dropout)
 
         # ========= TODO : END ========= #
 
@@ -56,9 +56,13 @@ class BigramLanguageModel(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        x = self.embeddings(x)
+        x = self.linear(x)
+        x = self.dropout(x)
+        return x
 
         # ========= TODO : END ========= #
+    
 
     def _init_weights(self, module):
         """
@@ -210,9 +214,9 @@ class MultiHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.head_{i} = ... # Use setattr to implement this dynamically, this is used as a placeholder
-        self.out = ...
-        self.dropout = ...
+        # self.head_{i} = ... # Use setattr to implement this dynamically, this is used as a placeholder
+        # self.out = ...
+        # self.dropout = ...
 
         # ========= TODO : END ========= #
 
