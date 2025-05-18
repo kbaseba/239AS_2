@@ -8,7 +8,7 @@ class BigramConfig:
     context_length: int = 1
     path_to_data: Path = Path("data")
     to_log: bool = True
-    log_interval: int = 100
+    log_interval: int = 1000000
     save_path: Path = Path("models/bigram/")
     batch_size: int = 32
     scheduler: bool = False

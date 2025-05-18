@@ -57,6 +57,8 @@ def solver(model_name):
     if config.to_log:
         wandb.init(project="dl2_proj3")
 
+    print("Eval Logging Inteval:" , config.log_interval )
+
     # Create the save path if it does not exist
     if not Path.exists(config.save_path):
         Path.mkdir(config.save_path, parents=True, exist_ok=True)
@@ -97,6 +99,10 @@ def solver(model_name):
     model.train()
     model.to(device)
 
+    best_eval_loss = float("inf")
+    eval_patience = 3   # how many times to tolerate no improvement
+    eval_no_improve_count = 0
+
     for i, (context, target) in enumerate(train_dataloader):
         context= context.to(device)
         target = target.to(device)
@@ -122,28 +128,44 @@ def solver(model_name):
             scheduler.step()
 
         del context, target # Clear memory
-
+        # eval_loss = 0.0 
         if i % config.log_interval == 0:
-
+            print("Evaluating Model", i)
             model.eval()
-            eval_loss = 0 # You can use this variable to store the evaluation loss for the current iteration
+            eval_loss = 0.0 # You can use this variable to store the evaluation loss for the current iteration
+            total_samples = 0
             ### ======== TODO : START ========= ###
             # Compute the evaluation loss on the eval dataset.
-            with torch.no_grad():
-                for context, target in eval_dataloader:
-                    context= context.to(device)
-                    target = target.to(device)
-                    
-                    logits = model(context)
-                    
-                    logits = logits.view(B * T, V)
-                    target = target.view(-1)
-                    loss = lossf(logits, target)
-                    # print(loss.item())
-                    eval_loss += loss.item() * context.size(0)  # multiply by batch size
+            # with torch.no_grad():
+            train_features, train_labels = next(iter(eval_dataloader))
+            print(f"Feature batch shape: {train_features.size()}")
+            print(f"Labels batch shape: {train_labels.size()}")
+            for context, target in eval_dataloader:
+                context= context.to(device)
+                target = target.to(device)
+                
+                logits = model(context)
+                logits = logits.view(B * T, V)
+                target = target.view(-1)
+                loss = lossf(logits, target)
+                # print(loss.item())
+                eval_loss += loss.item() * context.size(0)  # multiply by batch size
+                
+                total_samples += context.size(0)
+            print(eval_loss)    
+            eval_loss /= total_samples
                     # total_samples += inputs.size(0)
-            
-            
+            # Early stopping 
+            if eval_loss < best_eval_loss:
+                best_eval_loss = eval_loss
+                eval_no_improve_count = 0
+            else:
+                eval_no_improve_count += 1
+                print(f"No improvement in eval loss. Count = {eval_no_improve_count}/{eval_patience}")
+        
+            if eval_no_improve_count >= eval_patience:
+                print("Early stopping triggered.")
+                break
             
             ### ======== TODO : END ========= ###
             
@@ -161,6 +183,8 @@ def solver(model_name):
                 )
 
             model.train()
+
+        
 
         # Save the model every config.save_iterations
         if i % config.save_iterations == 0:

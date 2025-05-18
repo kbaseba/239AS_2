@@ -154,11 +154,14 @@ class SingleHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.key = ...
-        self.query = ...
-        self.value = ...
-        self.dropout = ...
-        causal_mask = ...
+        self.key = nn.Linear(input_dim, self.output_key_query_dim, bias=False)
+        self.query = nn.Linear(input_dim, self.output_key_query_dim, bias=False)
+        self.value = nn.Linear(input_dim, self.output_value_dim, bias=False)
+
+        self.dropout = nn.Dropout(dropout)
+        
+        mask = torch.triu(torch.ones(max_len, max_len), diagonal=1)
+        causal_mask = mask.bool().unsqueeze(0).unsqueeze(0)
 
         # ========= TODO : END ========= #
 
@@ -184,7 +187,27 @@ class SingleHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        B, T, _ = x.shape
+
+        k = self.key(x)    
+        q = self.query(x)  
+        v = self.value(x) 
+
+        
+        attn_scores = q @ k.transpose(-2, -1)  # (B, T, T)
+        attn_scores = attn_scores / (self.output_key_query_dim ** 0.5)
+
+       
+        mask = self.causal_mask[:, :, :T, :T]  # (1, 1, T, T)
+        attn_scores = attn_scores.masked_fill(mask[0], float('-inf'))
+    
+        attn_weights = torch.softmax(attn_scores, dim=-1)  # (B, T, T)
+        attn_weights = self.dropout(attn_weights)
+    
+        output = attn_weights @ v  # (B, T, D_v)
+    
+        return output
+
 
         # ========= TODO : END ========= #
 
@@ -218,6 +241,25 @@ class MultiHeadAttention(nn.Module):
         # self.out = ...
         # self.dropout = ...
 
+        assert input_dim % num_heads == 0, "input_dim must be divisible by num_heads"
+        head_dim = input_dim // num_heads
+    
+        # Create and register each single-head attention layer as head_0, head_1, ..., head_{n}
+        for i in range(num_heads):
+            setattr(
+                self,
+                f"head_{i}",
+                SingleHeadAttention(
+                    input_dim=input_dim,
+                    output_key_query_dim=head_dim,
+                    output_value_dim=head_dim,
+                    dropout=dropout
+                )
+            )
+    
+        self.out = nn.Linear(input_dim, input_dim, bias=True)  # as required
+        self.dropout = nn.Dropout(dropout)  # as required
+
         # ========= TODO : END ========= #
 
     def forward(self, x):
@@ -235,8 +277,21 @@ class MultiHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
-
+        # Collect outputs from each head
+        head_outputs = []
+        for i in range(self.num_heads):
+            head = getattr(self, f"head_{i}")  # retrieve head_i
+            head_output = head(x)  # (B, T, head_dim)
+            head_outputs.append(head_output)
+    
+        # Concatenate all head outputs along the last dimension
+        concat_output = torch.cat(head_outputs, dim=-1)  # (B, T, input_dim)
+    
+        # Final projection and dropout
+        output = self.out(concat_output)  # (B, T, input_dim)
+        output = self.dropout(output)
+    
+        return output
         # ========= TODO : END ========= #
 
 
@@ -269,6 +324,8 @@ class FeedForwardLayer(nn.Module):
         self.fc2 = ...
         self.fc2 = ...
         self.dropout = ...
+
+       
 
         # ========= TODO : END ========= #
 
