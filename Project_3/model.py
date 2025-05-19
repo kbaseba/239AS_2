@@ -100,7 +100,21 @@ class BigramLanguageModel(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        device = next(self.parameters()).device
+
+        # Convert to list if needed
+        if isinstance(context, torch.Tensor):
+            context = context.tolist()
+    
+        for _ in range(max_new_tokens):
+            last_token = torch.tensor([context[-1]], dtype=torch.long, device=device).unsqueeze(0)  # (1, 1)
+            logits = self(last_token)  # (1, 1, vocab_size)
+            logits = logits[:, -1, :]  # (1, vocab_size)
+            probs = torch.softmax(logits, dim=-1)  # (1, vocab_size)
+            next_token = torch.multinomial(probs, num_samples=1)  # (1, 1)
+            context.append(next_token.item())
+    
+        return torch.tensor(context, dtype=torch.long, device=device)
 
         ### ========= TODO : END ========= ###
 
