@@ -102,12 +102,16 @@ def solver(model_name):
     best_eval_loss = float("inf")
     eval_patience = 3   # how many times to tolerate no improvement
     eval_no_improve_count = 0
-
+    
+    print("Train len",len(train_dataloader))
+    print("Batch size", config.batch_size)
     for i, (context, target) in enumerate(train_dataloader):
+        
+         
         context= context.to(device)
         target = target.to(device)
 
-        train_loss = None # You can use this variable to store the training loss for the current iteration
+        train_loss = 0.0 # You can use this variable to store the training loss for the current iteration
         ### ======== TODO : START ========= ###
         # Do the forward pass, compute the loss, do the backward pass, and update the weights with the optimizer.
         model.zero_grad()
@@ -120,6 +124,19 @@ def solver(model_name):
         
         loss.backward()
         optimizer.step()
+
+        # Gather data and report
+        train_loss += loss.item()
+        if i % 1000 == 999:
+            last_loss = train_loss / 1000 # loss per batch
+            print('  batch {} loss: {}'.format(i + 1, last_loss))
+            # tb_x = epoch_index * len(training_loader) + i + 1
+            # tb_writer.add_scalar('Loss/train', last_loss, tb_x)
+            running_loss = 0.
+            
+        if i >= len(train_dataloader): # config.batch_size:
+            print("Loop Exceeding Number of batches")
+            break
         
         
         ### ======== TODO : END ========= ###
@@ -128,7 +145,9 @@ def solver(model_name):
             scheduler.step()
 
         del context, target # Clear memory
-        # eval_loss = 0.0 
+
+        
+        # print(torch.cuda.memory_summary())
         if i % config.log_interval == 0:
             print("Evaluating Model", i)
             model.eval()
@@ -136,25 +155,34 @@ def solver(model_name):
             total_samples = 0
             ### ======== TODO : START ========= ###
             # Compute the evaluation loss on the eval dataset.
-            # with torch.no_grad():
-            train_features, train_labels = next(iter(eval_dataloader))
-            print(f"Feature batch shape: {train_features.size()}")
-            print(f"Labels batch shape: {train_labels.size()}")
-            for context, target in eval_dataloader:
-                context= context.to(device)
-                target = target.to(device)
-                
-                logits = model(context)
-                logits = logits.view(B * T, V)
-                target = target.view(-1)
-                loss = lossf(logits, target)
-                # print(loss.item())
-                eval_loss += loss.item() * context.size(0)  # multiply by batch size
-                
-                total_samples += context.size(0)
-            print(eval_loss)    
-            eval_loss /= total_samples
-                    # total_samples += inputs.size(0)
+            print("eval_dataset length:", len(eval_dataset))
+            print("eval_dataloader length:", len(eval_dataloader)) 
+
+            with torch.no_grad():
+                for j, (context, target) in enumerate(eval_dataloader):
+                    if context.size(0) == 0:
+                        print("context size 0")
+                        continue
+                    if j == len(eval_dataloader)-1:
+                        print("end of eval dl")
+
+                    if j >=len(eval_dataloader):
+                        print("Loop Exceeding Number of batches")
+                        break
+                    context= context.to(device)
+                    target = target.to(device)
+                    
+                    
+                    logits = model(context)
+                    logits = logits.view(B * T, V)
+                    target = target.view(-1)
+                    loss = lossf(logits, target)
+                    eval_loss += loss.item() * context.size(0)  # multiply by batch size
+                    total_samples += context.size(0)
+                    
+                print("Eval Loss: ", eval_loss)    
+                eval_loss /= total_samples
+                   
             # Early stopping 
             if eval_loss < best_eval_loss:
                 best_eval_loss = eval_loss
