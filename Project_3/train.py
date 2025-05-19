@@ -88,7 +88,7 @@ def solver(model_name):
     lossf = nn.CrossEntropyLoss()
 
     # Define the optimizer
-    optimizer =  optim.Adam(model.parameters(), lr=0.01)
+    optimizer =  optim.Adam(model.parameters(), lr=0.0001)
     ### ======== TODO : END ========= ###
 
     if config.scheduler:
@@ -143,7 +143,14 @@ def solver(model_name):
             for context, target in eval_dataloader:
                 context= context.to(device)
                 target = target.to(device)
-                
+                print("context device:", context.device)
+                print("context shape:", context.shape)
+                print("min token ID:", context.min().item())
+                print("max token ID:", context.max().item())
+                vocab_size = 50000
+                assert context.min() >= 0, "❌ Negative token index!"
+                assert context.max() < vocab_size, f"❌ Token index {context.max().item()} exceeds vocab size {vocab_size}"
+
                 logits = model(context)
                 logits = logits.view(B * T, V)
                 target = target.view(-1)

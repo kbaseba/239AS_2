@@ -161,7 +161,7 @@ class SingleHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         
         mask = torch.triu(torch.ones(max_len, max_len), diagonal=1)
-        causal_mask = mask.bool().unsqueeze(0).unsqueeze(0)
+        causal_mask = mask.bool()
 
         # ========= TODO : END ========= #
 
@@ -196,10 +196,8 @@ class SingleHeadAttention(nn.Module):
         
         attn_scores = q @ k.transpose(-2, -1)  # (B, T, T)
         attn_scores = attn_scores / (self.output_key_query_dim ** 0.5)
-
        
-        mask = self.causal_mask[:, :, :T, :T]  # (1, 1, T, T)
-        attn_scores = attn_scores.masked_fill(mask[0], float('-inf'))
+        attn_scores = attn_scores.masked_fill(self.causal_mask[:T, :T], float('-inf'))
     
         attn_weights = torch.softmax(attn_scores, dim=-1)  # (B, T, T)
         attn_weights = self.dropout(attn_weights)
@@ -319,11 +317,10 @@ class FeedForwardLayer(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.fc1 = ...
-        self.activation = ...
-        self.fc2 = ...
-        self.fc2 = ...
-        self.dropout = ...
+        self.fc1 = nn.Linear(input_dim, feedforward_dim, bias=True)
+        self.activation = nn.GELU()
+        self.fc2 = nn.Linear(feedforward_dim, input_dim, bias=True)
+        self.dropout = nn.Dropout(dropout)
 
        
 
@@ -344,7 +341,11 @@ class FeedForwardLayer(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        out = self.fc1(x)  # (B, T, feedforward_dim)
+        out = self.activation(out)  # (B, T, feedforward_dim)
+        out = self.fc2(out)  # (B, T, input_dim)
+        out = self.dropout(out)  # (B, T, input_dim)
+        return out
 
         ### ========= TODO : END ========= ###
 
@@ -387,8 +388,12 @@ class LayerNorm(nn.Module):
         var = None
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
-
+        # Compute mean and variance
+        mean = input.mean(dim=-1, keepdim=True)  # (B, T, 1)
+        var = input.var(dim=-1, keepdim=True, unbiased=False)  # (B, T, 1)
+        # Reshape mean and var to match the input shape
+        mean = mean.expand_as(input)  # (B, T, D)
+        var = var.expand_as(input)  # (B, T, D)
         # ========= TODO : END ========= #
 
         if self.elementwise_affine:
@@ -421,10 +426,14 @@ class TransformerLayer(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.norm1 = ...
-        self.attention = ...
-        self.norm2 = ...
-        self.feedforward = ...
+        self.norm1 = LayerNorm(input_dim)
+        self.attention = MultiHeadAttention(
+            input_dim=input_dim, num_heads=num_heads
+        )
+        self.norm2 = LayerNorm(input_dim)
+        self.feedforward = FeedForwardLayer(
+            input_dim=input_dim, feedforward_dim=feedforward_dim
+        )
 
         # ========= TODO : END ========= #
 
@@ -443,7 +452,17 @@ class TransformerLayer(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        # LayerNorm + MultiHeadAttention
+        x_new = self.norm1(x)  # (B, T, D)
+        x_new = self.attention(x_new)  # (B, T, D)
+        # Residual connection
+        x = x + x_new  # (B, T, D)
+        # LayerNorm + FeedForwardLayer
+        x_new = self.norm2(x)  # (B, T, D)
+        x_new = self.feedforward(x_new)  # (B, T, D)
+        # Residual connection
+        x = x + x_new  # (B, T, D)
+        return x
 
         # ========= TODO : END ========= #
 
@@ -522,7 +541,31 @@ class MiniGPT(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        # Get the batch size and sequence length
+        B, T = x.shape
+        # Get the positional embeddings
+        pos = self.pos[:T]
+
+        # Get the token embeddings
+        token_embeddings = self.vocab_embedding(x)
+        
+
+        # Get the positional embeddings
+        pos_embeddings = self.positional_embedding(pos)
+        # Add the token and positional embeddings
+        x = token_embeddings + pos_embeddings
+        # Apply dropout
+        x = self.embed_dropout(x)
+        # Pass through the transformer layers
+        for layer in self.transformer_layers:
+            x = layer(x)
+        # Apply layer norm before the final layer
+        x = self.prehead_norm(x)
+        # Pass through the final layer
+        x = self.head(x)
+        print(x.shape)
+        # Return the logits
+        return x
 
         ### ========= TODO : END ========= ###
 
