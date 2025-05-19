@@ -549,7 +549,6 @@ class MiniGPT(nn.Module):
         # Get the token embeddings
         token_embeddings = self.vocab_embedding(x)
         
-
         # Get the positional embeddings
         pos_embeddings = self.positional_embedding(pos)
         # Add the token and positional embeddings
@@ -563,7 +562,6 @@ class MiniGPT(nn.Module):
         x = self.prehead_norm(x)
         # Pass through the final layer
         x = self.head(x)
-        print(x.shape)
         # Return the logits
         return x
 
@@ -604,6 +602,37 @@ class MiniGPT(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        # Move the context to the same device as the model
+        context = context.to(self.pos.device)
+        # Get the batch size and sequence length
+        context = context.unsqueeze(0)  
+        B, T = context.shape
+        # Create a tensor to hold the generated tokens
+        generated_tokens = torch.zeros(
+            (B, max_new_tokens), dtype=torch.long, device=self.pos.device
+        )
+        # Fill the generated tokens with the context
+        generated_tokens[:, :T] = context
+        # Generate new tokens       
+        for i in range(T,max_new_tokens):
+            # Get the logits for the current context
+            logits = self(context)
+            # Get the last token's logits
+            last_token_logits = logits[:, -1, :]
+            # Sample from the distribution
+            next_token = torch.multinomial(
+                torch.softmax(last_token_logits, dim=-1), num_samples=1
+            )
+            # Add the new token to the generated tokens
+            generated_tokens[:, i] = next_token.squeeze(1)
+            # Update the context with the new token
+            context = torch.cat((context, next_token), dim=1)
+            # Update the batch size and sequence length
+            B, T = context.shape
+            # Trim the context to the maximum length
+            context = context[:, -self.pos.shape[0] :]  
+        # Return the generated tokens
+        return generated_tokens
+
 
         ### ========= TODO : END ========= ###

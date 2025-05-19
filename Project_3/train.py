@@ -102,7 +102,8 @@ def solver(model_name):
     best_eval_loss = float("inf")
     eval_patience = 3   # how many times to tolerate no improvement
     eval_no_improve_count = 0
-
+    print("Total number of training set: ", len(train_dataloader))
+    print("Total number of eval iterations: ", len(eval_dataloader))
     for i, (context, target) in enumerate(train_dataloader):
         context= context.to(device)
         target = target.to(device)
@@ -130,56 +131,47 @@ def solver(model_name):
         del context, target # Clear memory
         # eval_loss = 0.0 
         if i % config.log_interval == 0:
-            print("Evaluating Model", i)
+            # print("Evaluating Model", i)
             model.eval()
             eval_loss = 0.0 # You can use this variable to store the evaluation loss for the current iteration
             total_samples = 0
             ### ======== TODO : START ========= ###
             # Compute the evaluation loss on the eval dataset.
-            # with torch.no_grad():
-            train_features, train_labels = next(iter(eval_dataloader))
-            print(f"Feature batch shape: {train_features.size()}")
-            print(f"Labels batch shape: {train_labels.size()}")
-            for context, target in eval_dataloader:
-                context= context.to(device)
-                target = target.to(device)
-                print("context device:", context.device)
-                print("context shape:", context.shape)
-                print("min token ID:", context.min().item())
-                print("max token ID:", context.max().item())
-                vocab_size = 50000
-                assert context.min() >= 0, "❌ Negative token index!"
-                assert context.max() < vocab_size, f"❌ Token index {context.max().item()} exceeds vocab size {vocab_size}"
+            
+            with torch.no_grad():
+                for val_context, val_target in eval_dataloader:
+                    val_context = val_context.to(device)
+                    val_target = val_target.to(device)
 
-                logits = model(context)
-                logits = logits.view(B * T, V)
-                target = target.view(-1)
-                loss = lossf(logits, target)
-                # print(loss.item())
-                eval_loss += loss.item() * context.size(0)  # multiply by batch size
+                    val_logits = model(val_context)
+                    B, T, V = val_logits.shape
+                    val_logits = val_logits.view(B * T, V)
+                    val_target = val_target.view(-1)
+
+                    val_loss = lossf(val_logits, val_target)
+                    eval_loss += val_loss.item() * B  # accumulate weighted by batch size
+                    total_samples += B
+
+                    eval_loss_temp = eval_loss / total_samples  # average over dataset
+                    # Early stopping 
+                    if eval_loss_temp < best_eval_loss:
+                        best_eval_loss = eval_loss_temp
+                        eval_no_improve_count = 0
+                    else:
+                        eval_no_improve_count += 1
+                        # print(f"No improvement in eval loss. Count = {eval_no_improve_count}/{eval_patience}")
                 
-                total_samples += context.size(0)
-            print(eval_loss)    
-            eval_loss /= total_samples
-                    # total_samples += inputs.size(0)
-            # Early stopping 
-            if eval_loss < best_eval_loss:
-                best_eval_loss = eval_loss
-                eval_no_improve_count = 0
-            else:
-                eval_no_improve_count += 1
-                print(f"No improvement in eval loss. Count = {eval_no_improve_count}/{eval_patience}")
-        
-            if eval_no_improve_count >= eval_patience:
-                print("Early stopping triggered.")
-                break
+                    if eval_no_improve_count >= eval_patience:
+                        # print("Early stopping triggered.")
+                        break
+            eval_loss /= total_samples  # average over dataset
             
             ### ======== TODO : END ========= ###
             
-            print(
-                f"Iteration {i}, Train Loss: {train_loss}",
-                f"Eval Loss: {eval_loss}",
-            )
+            # print(
+            #     f"Iteration {i}, Train Loss: {train_loss}",
+            #     f"Eval Loss: {eval_loss}",
+            # )
 
             if config.to_log:
                 wandb.log(
