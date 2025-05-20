@@ -8,7 +8,7 @@ class BigramConfig:
     context_length: int = 1
     path_to_data: Path = Path("data")
     to_log: bool = True
-    log_interval: int = 10000
+    log_interval: int = 100
     save_path: Path = Path("models/bigram/")
     batch_size: int = 32
     scheduler: bool = False
@@ -18,7 +18,7 @@ class BigramConfig:
     embed_dim: int = 32
     dropout: float = 0.1
     save_iterations: int = 10000
-    max_iter: int = 500000
+    max_iter: int = 50000
     learning_rate: float = 1e-4
 
 

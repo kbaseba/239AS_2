@@ -650,3 +650,94 @@ class MiniGPT(nn.Module):
 
 
         ### ========= TODO : END ========= ###
+        
+class MultiQueryAttention(nn.Module):
+    '''
+    - Each head has its own Q
+    - All heads share one K and one V
+    '''
+    
+    def __int__(self, input_dim, num_heads, dropout=0.1) -> None:
+        super().__init__()
+        
+        self.input_dim = input_dim 
+        self.num_heads = num_heads
+        
+        assert input_dim % num_heads == 0, "input_dim must be divisible by num_heads"
+        self.head_dim = input_dim // num_heads
+        self.scale = 1.0/math.sqrt(self.head_dim)
+        
+        self.q = nn.Linear(input_dim, input_dim, bias=False)
+        self.kv = nn.Linear(input_dim, 2* self.head_dim, bias= False)
+        
+        self.out = nn.Linear(input_dim, input_dim, bias=True)
+        
+        self.dropout = nn.Dropout(dropout)    
+        
+    def forward(self, x):
+        B, T, _ = x.shape
+        
+        q = self.q(x).view(B,T,self.num_heads,self.head_dim)
+        q = q.transpose(1,2)
+        
+        kv = self.kv(x)
+        k, v = kv.split(self.head_dim, dim=-1)
+        k = k.unsqueeze(1)
+        v = v.unsqueeze(1)
+        
+        scores = torch.matmul(q, k.transpose(-2,-1)) * self.scale
+        attn_weights = torch.softmax(scores,dim=-1)
+        attn_weights = self.dropout(attn_weights)
+        
+        context = torch.matmul(attn_weights, v)
+        context = context.transpose(1,2).view(B,T,self.input_dim)
+        
+        return self.out(self.dropout(context))
+
+         
+class GroupedMultiHeadAttention(nn.Module):
+    '''
+    - Each head has its own Q
+    - Grouped K and Q
+    '''
+    
+    def __int__(self, input_dim, num_heads, kv_heads, dropout=0.1) -> None:
+        super().__init__()
+        assert input_dim % num_heads == 0, "input_dim must be divisible by num_heads"
+        assert num_heads % kv_heads == 0, "input_dim must be divisible by num_heads"
+
+        self.input_dim = input_dim 
+        self.num_heads = num_heads
+        self.kv_heads = kv_heads
+        self.group_size = num_heads // kv_heads
+        self.head_dim = input_dim // num_heads
+        self.scale = 1.0/math.sqrt(self.head_dim)
+        
+        self.q = nn.Linear(input_dim, input_dim, bias=False)
+        self.kv = nn.Linear(input_dim, kv_heads* 2* self.head_dim, bias= False)
+        
+        self.out = nn.Linear(input_dim, input_dim, bias=True)
+        
+        self.dropout = nn.Dropout(dropout) 
+        
+    def forward(self, x):
+        B, T, _ = x.shape
+        
+        q = self.q(x).view(B,T,self.num_heads,self.head_dim)
+        q = q.transpose(1,2)
+        
+        # Key difference from MQA
+        kv = self.kv(x).view(B,T, self.kv_heads, 2*self.head_dim).transpose(1,2)
+        k, v = kv.chunk(2, dim=-1)
+        k = k.repeat_interleave(self.group_size, dim=1)  # (B, H_q, T, D)
+        v = v.repeat_interleave(self.group_size, dim=1)
+        
+        
+        scores = torch.matmul(q, k.transpose(-2,-1)) * self.scale
+        attn_weights = torch.softmax(scores,dim=-1)
+        attn_weights = self.dropout(attn_weights)
+        
+        context = torch.matmul(attn_weights, v)
+        context = context.transpose(1,2).view(B,T,self.input_dim)
+        
+        return self.out(self.dropout(context))
