@@ -1,5 +1,5 @@
 """
-Training file for the models we implemented 
+Training file for the models we implemented
 """
 
 from pathlib import Path
@@ -26,7 +26,7 @@ def solver(model_name):
         model = MiniGPT(config)
     else:
         raise ValueError("Invalid model name")
-    
+
     # Load the dataset
     train_dataset = TinyStoriesDataset(
         config.path_to_data,
@@ -67,7 +67,7 @@ def solver(model_name):
     """
     You are required to implement the training loop for the model.
 
-    The code below is a skeleton for the training loop, for your reference. 
+    The code below is a skeleton for the training loop, for your reference.
     You can fill in the missing parts or completely set it up from scratch.
 
     Please keep the following in mind:
@@ -76,10 +76,10 @@ def solver(model_name):
     - You are required to log the loss (either on wandb or any other logger you prefer) every `config.log_interval` iterations.
     - It is recommended that you save the model weights every `config.save_iterations` iterations. You can also just save the model with the best training loss.
 
-    NOTE : 
+    NOTE :
     - Please check the config file to see the different configurations you can set for the model.
-    - The MiniGPT config has params that you do not need to use, these were added to scale the model but are 
-    not a required part of the assignment. 
+    - The MiniGPT config has params that you do not need to use, these were added to scale the model but are
+    not a required part of the assignment.
     - Feel free to experiment with the parameters and I would be happy to talk to you about them if interested.
     """
 
@@ -105,10 +105,12 @@ def solver(model_name):
     print("Total number of training set: ", len(train_dataloader))
     print("Total number of eval iterations: ", len(eval_dataloader))
     for i, (context, target) in enumerate(train_dataloader):
+
+
         context= context.to(device)
         target = target.to(device)
 
-        train_loss = None # You can use this variable to store the training loss for the current iteration
+        train_loss = 0.0 # You can use this variable to store the training loss for the current iteration
         ### ======== TODO : START ========= ###
         # Do the forward pass, compute the loss, do the backward pass, and update the weights with the optimizer.
         model.zero_grad()
@@ -118,18 +120,33 @@ def solver(model_name):
         logits = logits.view(B * T, V)
         target = target.view(-1)
         loss = lossf(logits, target)
-        
+
         loss.backward()
         optimizer.step()
-        
-        
+
+        # Gather data and report
+        train_loss += loss.item()
+        if i % 1000 == 999:
+            last_loss = train_loss / 1000 # loss per batch
+            print('  batch {} loss: {}'.format(i + 1, last_loss))
+            # tb_x = epoch_index * len(training_loader) + i + 1
+            # tb_writer.add_scalar('Loss/train', last_loss, tb_x)
+            running_loss = 0.
+
+        if i >= len(train_dataloader): # config.batch_size:
+            print("Loop Exceeding Number of batches")
+            break
+
+
         ### ======== TODO : END ========= ###
 
         if config.scheduler:
             scheduler.step()
 
         del context, target # Clear memory
-        # eval_loss = 0.0 
+
+
+        # print(torch.cuda.memory_summary())
         if i % config.log_interval == 0:
             # print("Evaluating Model", i)
             model.eval()
@@ -183,7 +200,7 @@ def solver(model_name):
 
             model.train()
 
-        
+
 
         # Save the model every config.save_iterations
         if i % config.save_iterations == 0:
