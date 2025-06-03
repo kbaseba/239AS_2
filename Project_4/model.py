@@ -26,17 +26,18 @@ class MLP(nn.Module):
         # self.output = 
         # self.non_linear = 
         # ====================================
-        raise NotImplementedError("MLP not implemented")
-    
-
+        
+        self.linear1 = nn.Linear(input_size, hidden_size)
+        self.output = nn.Linear(hidden_size, action_size)
+        self.non_linear = non_linear()
 
         # ========== YOUR CODE ENDS ==========
 
     def forward(self, x:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError("MLP forward not implemented")
     
-
+        x = self.non_linear(self.linear1(x))
+        x = self.output(x)
 
         # ========== YOUR CODE ENDS ==========
         return x
@@ -61,17 +62,38 @@ class Nature_Paper_Conv(nn.Module):
         """
         super(Nature_Paper_Conv, self).__init__()
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError("Nature_Paper_Conv not implemented")
-    
+        
+        c, h, w = input_size
+
+        self.CNN = nn.Sequential(
+            nn.Conv2d(c, 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU()
+        )
+
+        # Compute output size after conv layers
+        def conv2d_out(size, kernel, stride):
+            return (size - kernel) // stride + 1
+
+        convw = conv2d_out(conv2d_out(conv2d_out(w, 8, 4), 4, 2), 3, 1)
+        convh = conv2d_out(conv2d_out(conv2d_out(h, 8, 4), 4, 2), 3, 1)
+        linear_input_size = convw * convh * 64
+
+        # Must match weight file: 512 hidden units
+        self.MLP = MLP(input_size=linear_input_size, action_size=action_size, hidden_size=512)
 
 
         # ========== YOUR CODE ENDS ==========
 
     def forward(self, x:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError("Nature_Paper_Conv forward not implemented")
     
-
+        x = self.CNN(x)
+        x = x.view(x.size(0), -1)
+        x = self.MLP(x)
     
         # ========== YOUR CODE ENDS ==========
         return x
