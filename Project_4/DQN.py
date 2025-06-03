@@ -159,9 +159,34 @@ class DQN:
         # 6. compute loss between current Q and target Q
         # 7. backprop
         # ====================================
-        raise NotImplementedError("optimize_model func in DQN class not implemented")
-    
+        
+        # step 1
+        if len(self.replay_buffer) < 10 * self.batch_size:
+            return False, 0.0
 
+        # step 2
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size, device=self.device)
+
+        # step 3
+        # Select Q-values for the taken actions
+        q_values = self.model(states)  # shape: (batch_size, num_actions)
+        q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)  # shape: (batch_size,)
+
+        # step 4
+        with torch.no_grad():
+            next_q_values = self.model(next_states)
+            max_next_q_values = next_q_values.max(dim=1)[0]
+            targets = rewards + self.gamma * max_next_q_values * (~dones)
+
+        # step 5
+        loss = self.loss_fn(q_values, targets)
+
+        # step 6
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return True, loss.item()
 
         # ========== YOUR CODE ENDS ==========
             
@@ -183,9 +208,14 @@ class DQN:
         #  - if probability epsilon: random action
         #  - else: greedy action
         # ====================================
-        raise NotImplementedError("sample_action func in DQN class not implemented")
-    
-
+        
+        if random.random() < epsilon:
+            return self.env.action_space.sample()
+        else:
+            state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+            with torch.no_grad():
+                q_values = self.model(state_tensor)
+            return q_values.argmax(dim=1).item()
 
         # ========== YOUR CODE ENDS ==========
         return index
