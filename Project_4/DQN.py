@@ -154,6 +154,7 @@ class DQN:
         # TODO: some hints to get you started:
         # 1. check if the replay buffer has enough samples
         # 2. sample a minibatch
+        # 3. No-op
         # 4. compute current Q: q_values = ...
         # 5. compute target Q
         # 6. compute loss between current Q and target Q
@@ -161,27 +162,33 @@ class DQN:
         # ====================================
         
         # step 1
-        if len(self.replay_buffer) < 10 * self.batch_size:
+        if len(self.replay_buffer) < (10 * self.batch_size):
             return False, 0.0
 
         # step 2
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size, device=self.device)
 
         # step 3
-        # Select Q-values for the taken actions
-        q_values = self.model(states)  # shape: (batch_size, num_actions)
-        q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)  # shape: (batch_size,)
+        # No-op
 
         # step 4
+        # Select Q-values for the taken actions
+        q_values = self.model(states)  # shape: (batch_size, num_actions)
+        
+        # step 5: target_q
         with torch.no_grad():
             next_q_values = self.model(next_states)
             max_next_q_values = next_q_values.max(dim=1)[0]
-            targets = rewards + self.gamma * max_next_q_values * (~dones)
-
-        # step 5
-        loss = self.loss_fn(q_values, targets)
+            if dones.all():
+                targets = rewards
+            else:
+                targets = rewards + self.gamma * max_next_q_values
 
         # step 6
+        q_values_given_action = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)  # shape: (batch_size,)
+        loss = self.loss_fn(q_values_given_action, targets)
+
+        # step 7
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -210,15 +217,15 @@ class DQN:
         # ====================================
         
         if random.random() < epsilon:
-            return self.env.action_space.sample()
+            index = self.env.action_space.sample()
         else:
             state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
             with torch.no_grad():
                 q_values = self.model(state_tensor)
-            return q_values.argmax(dim=1).item()
+                index = q_values.argmax(dim=1).item()
 
         # ========== YOUR CODE ENDS ==========
-        return index
+        return index 
         
     def _set_seed(self, seed:int):
         random.seed(seed)

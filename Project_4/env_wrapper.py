@@ -127,6 +127,6 @@ class EnvWrapper(gym.Wrapper):
         )
 
         # ========== YOUR CODE ENDS ==========
-        return self.stacked_state, reward, terminated, truncated, info
+        return self.stacked_state, total_reward, terminated, truncated, info
     
    
