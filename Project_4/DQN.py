@@ -404,8 +404,8 @@ class SoftUpdateDQN(HardUpdateDQN):
         # ========== YOUR CODE HERE ==========
         # TODO
         # ====================================
-        raise NotImplementedError("update_model func in SoftUpdateDQN class not implemented")
     
-
+        for target_param, model_param in zip(self.target_model.parameters(), self.model.parameters()):
+            target_param.data.copy_(self.tau * model_param.data + (1.0 - self.tau) * target_param.data)
 
         # ========== YOUR CODE ENDS ==========
