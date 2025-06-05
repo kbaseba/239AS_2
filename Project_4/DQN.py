@@ -315,9 +315,22 @@ class HardUpdateDQN(DQN):
         # TODO:
         # fill in the initialization and synchronization of the target model weights
         # ====================================
-        raise NotImplementedError("HardUpdateDQN class not implemented")
     
+        # Initialize target network with same architecture
+        self.target_model = model(
+            self.observation_space,
+            self.env.action_space.n,
+            **model_kwargs
+        ).to(self.device)
 
+        # Copy initial weights from model to target_model
+        self.target_model.load_state_dict(self.model.state_dict())
+
+        # Set target network to eval mode (not training)
+        self.target_model.eval()
+
+        # Store update frequency for hard target updates
+        self.update_freq = update_freq
 
         # ========== YOUR CODE ENDS ==========
         
@@ -332,10 +345,34 @@ class HardUpdateDQN(DQN):
         # TODO:
         # hint: you can copy over most of the code from the parent class
         # and only change one line
-        # ====================================
-        raise NotImplementedError("optimize_model func in HardUpdateDQN class not implemented")     
+        # ====================================   
     
+        if len(self.replay_buffer) < (10 * self.batch_size):
+            return False, 0.0
 
+        # Sample batch
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size, device=self.device)
+
+        # Compute Q(s, a) from current model
+        q_values = self.model(states)
+        q_values_given_action = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+
+        # Compute target Q using target network
+        with torch.no_grad():
+            next_q_values = self.target_model(next_states)  # changed from self.model
+            max_next_q_values = next_q_values.max(dim=1)[0]
+            targets = rewards + self.gamma * max_next_q_values * (~dones)
+
+        # Compute loss and update
+        loss = self.loss_fn(q_values_given_action, targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Update target model if needed
+        self._update_model()
+
+        return True, loss.item()
 
         # ========== YOUR CODE ENDS ==========
 
