@@ -48,14 +48,17 @@ class OU_Noise:
         # TODO: 
         # hint look at line 36
         # ====================================
-        raise NotImplementedError
+        self.sigma = sigma
+        self.state = np.ones(self.action_space) * self.mu
         
         # ========== YOUR CODE ENDS ==========
 
     def _sample(self):
         """sample the noise per the discretized Ornstein-Uhlenbeck process detailed in the notebook"""
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError
+        dx = self.theta*(self.mu - self.state) + self.sigma*np.random.randn(self.action_space)
+        self.state = self.state + dx
+        return self.state
     
         # ========== YOUR CODE ENDS ==========
     
@@ -71,9 +74,14 @@ class OU_Noise:
         # ========== YOUR CODE HERE ==========
         # TODO:
         # you can use the _sample method to get the noise
-        # ====================================
-        raise NotImplementedError
-    
+        # ===================================
+        noised_action = action + self._sample()
+        
+        clipped = np.clip(noised_action, self.action_range[0], self.action_range[1])
+        # clipped =  np.min(np.max(noised_action, -1), 1)
+        # print(action, noised_action, clipped)
+        return clipped
+
         # ========== YOUR CODE ENDS ==========
     
 
@@ -233,14 +241,68 @@ class DDPG:
         # update the model
         # return the losses
         # ====================================
-        raise NotImplementedError
+        # raise NotImplementedError
+        # sample the batch
+        
+        # compute the target Q value
+    
+        # compute the current Q value
+    
+        # compute the critic loss
+    
+        # optimize the critic
+        # compute the actor loss
+        # optimize the actor
+        # update the model
+        # return the losses
+
+        if len(self.replay_buffer) < batch_size:
+            return 0.0, 0.0  # skip training if not enough samples
+
+        # Sample a batch
+        state_batch, action_batch, reward_batch, next_state_batch, done_batch = self.replay_buffer.sample(batch_size)
+    
+        state_batch = torch.FloatTensor(state_batch).to(self.device)
+        action_batch = torch.FloatTensor(action_batch).to(self.device)
+        reward_batch = torch.FloatTensor(reward_batch).unsqueeze(1).to(self.device)
+        next_state_batch = torch.FloatTensor(next_state_batch).to(self.device)
+        # done_batch = torch.FloatTensor(done_batch).unsqueeze(1).to(self.device)
+        # done_batch = torch.FloatTensor(done_batch.astype(np.float32)).unsqueeze(1).to(self.device)
+        done_batch = done_batch.to(torch.float32).unsqueeze(1).to(self.device)
+
+
+    
+        with torch.no_grad():
+            next_actions = self.target_actor(next_state_batch)
+            target_Q = self.target_critic(next_state_batch, next_actions)
+            target_Q = reward_batch + self.gamma * target_Q * (1 - done_batch)
+    
+        current_Q = self.critic(state_batch, action_batch)
+        critic_loss = self.loss_fn(current_Q, target_Q)
+    
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+    
+        actor_loss = -self.critic(state_batch, self.actor(state_batch)).mean()
+    
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+    
+        self._update_model()
+    
+        return critic_loss.item(), actor_loss.item()
     
         # ========== YOUR CODE ENDS ==========
     
     def _update_model(self):
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError
-    
+        for target_param, param in zip(self.target_actor.parameters(), self.actor.parameters()):
+            target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
+
+        for target_param, param in zip(self.target_critic.parameters(), self.critic.parameters()):
+            target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)     
         # ========== YOUR CODE ENDS ==========
     
     def train(self, episodes:int, val_freq:int, val_episodes:int, test_episodes:int, save_every:int,
@@ -279,7 +341,23 @@ class DDPG:
                 # if the replay buffer is large enough, and it is time to train the model
                 # and update the total Q and actor loss
                 # ====================================
-                raise NotImplementedError
+                state_tensor = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+                action = self.actor(state_tensor).detach().cpu().numpy()[0]
+                action = self.OU_noise.noise(action)
+    
+                next_state, reward, terminated, truncated, _ = self.env.step(action)
+                done = terminated or truncated
+    
+                self.replay_buffer.add(state, action, reward, next_state, done)
+                state = next_state
+                total_reward += reward
+    
+                if len(self.replay_buffer) >= self.batch_size and l % train_every == 0:
+                    Q_loss, actor_loss = self._train_one_batch(self.batch_size)
+                    Q_loss_total += Q_loss
+                    actor_loss_total += actor_loss
+    
+                l += 1
             
                 # ========== YOUR CODE ENDS ==========
 
