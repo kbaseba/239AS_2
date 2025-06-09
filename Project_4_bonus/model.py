@@ -99,16 +99,10 @@ class Critic(nn.Module):
         # ====================================
         state_dim = input_size[0]
 
-        # First layer: process state only
         self.fc1 = nn.Linear(state_dim, 400)
-
-        # Second layer: process concatenated [state_repr, action]
         self.fc2 = nn.Linear(400 + action_size, 300)
-
-        # Output layer: outputs Q-value
         self.fc3 = nn.Linear(300, 1)
 
-        # Initialize weights
         self.init_weights()
     
         # ========== YOUR CODE ENDS ==========

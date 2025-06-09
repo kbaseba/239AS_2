@@ -272,7 +272,6 @@ class DDPG:
 
 
     
-        # ===== Critic update =====
         with torch.no_grad():
             next_actions = self.target_actor(next_state_batch)
             target_Q = self.target_critic(next_state_batch, next_actions)
@@ -285,14 +284,12 @@ class DDPG:
         critic_loss.backward()
         self.critic_optimizer.step()
     
-        # ===== Actor update =====
         actor_loss = -self.critic(state_batch, self.actor(state_batch)).mean()
     
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
     
-        # ===== Soft update target networks =====
         self._update_model()
     
         return critic_loss.item(), actor_loss.item()
@@ -355,7 +352,6 @@ class DDPG:
                 state = next_state
                 total_reward += reward
     
-                # Train the network if enough samples are available and it's time
                 if len(self.replay_buffer) >= self.batch_size and l % train_every == 0:
                     Q_loss, actor_loss = self._train_one_batch(self.batch_size)
                     Q_loss_total += Q_loss
